@@ -2,8 +2,10 @@
 # -*- coding: utf-8 -*-
 # author: Alexey Koshevoy
 
+import re
 from gensim.models import word2vec
 from sklearn.manifold import TSNE
+import matplotlib.pyplot as plt
 import dionysus as dn
 import numpy as np
 import pymorphy2
@@ -24,14 +26,17 @@ tokenizer = nltk.data.load('tokenizers/punkt/english.pickle')
 
 class Persistent:
 
-    def __init__(self, path, size=100, window=20, min_count=2, workers=4,
-                 shuffle=False, big_shuffle=False):
+    def __init__(self, path=None, text=None, size=100, window=20, min_count=2,
+                 workers=4, shuffle=False, split_sent=None):
 
         self.shuffle = shuffle
-        self.big_shuffle = big_shuffle
-
+        self.text = text
         self.path = path
-        self.tokenized = self._tokenize()
+
+        if split_sent:
+            self.tokenized = split_sent
+        else:
+            self.tokenized = self._tokenize()
 
         # model parameters
 
@@ -64,7 +69,10 @@ class Persistent:
 
         :return: list o lists, which contains sentences
         """
-        file = open(self.path).read()
+        if self.path:
+            file = open(self.path).read() 
+        else:
+            file = self.text
 
         sentences = tokenizer.tokenize(file)
 
@@ -74,6 +82,9 @@ class Persistent:
             s = s.translate(str.maketrans('', '', punctuation))
             split_sent.append(s.lower().split())
 
+        if self.shuffle:
+            split_sent = random.shuffle(split_sent, random.random)
+
         for sentence in split_sent:
             for i in range(len(sentence)):
                 p = morph.parse(sentence[i])[0]
@@ -81,13 +92,6 @@ class Persistent:
 
         for i in range(len(split_sent)):
             split_sent[i] = self.check_sentence(split_sent[i])
-
-        if self.shuffle:
-            for element in split_sent:
-                element = random.shuffle(element, random.random)
-
-        if self.big_shuffle:
-            split_sent = random.shuffle(split_sent, random.random)
 
         return split_sent
 
@@ -106,20 +110,14 @@ class Persistent:
 
         return model
 
-    def _get_vectors(self, dimensions=100):
+    def _get_vectors(self):
 
-        """
-        This method is used to extract data from w2v model.
-
-        :param dimensions: dimensions in given vectors
-        :return: numpy array of vectors
-        """
         tokens = []
 
         for word in self.model.wv.vocab:
             tokens.append(self.model[word])
 
-        result_array = np.empty((0, dimensions))
+        result_array = np.empty((0, self.size))
 
         for token in tokens:
             result_array = np.append(result_array, [token], axis=0)
@@ -133,7 +131,7 @@ class Persistent:
         implementation of given vectors
         :return: dionysus diagrams
         """
-        vectors = self._get_vectors(dimensions=self.size)
+        vectors = self._get_vectors()
 
         f_lower_star = dn.fill_freudenthal(vectors)
         p = dn.homology_persistence(f_lower_star)
@@ -143,3 +141,7 @@ class Persistent:
 
     def __str__(self):
         return self.tokenized
+
+# if __name__ == '__main__':
+#     a = Persistent(text='Привет я баха и я хочу есть.', min_count=1)
+#     print(a.persistent())
