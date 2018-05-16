@@ -99,3 +99,10 @@ ENV/
 
 # mypy
 .mypy_cache/
+/persistent/GoogleNews-vectors-negative300.bin
+/train_ph_spam.csv
+/shinel.txt
+/texts/
+/stop words/
+/data/
+/classification test/
